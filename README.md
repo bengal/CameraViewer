@@ -1,0 +1,1 @@
+A simple IP camera viewer written in Python using GTK and GStreamer.
