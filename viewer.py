@@ -84,9 +84,9 @@ class GstWidget(Gtk.DrawingArea):
     def init_pipeline(self, full, audio):
         uri = self.full_uri if full else self.uri
         if audio:
-            self.pipeline = Gst.parse_launch (f'rtspsrc location={uri}  name=d d. ! queue ! capsfilter caps="application/x-rtp,media=video" ! rtph264depay ! decodebin ! autovideosink d. ! queue ! capsfilter caps="application/x-rtp,media=audio" ! decodebin ! audioconvert ! autoaudiosink')
+            self.pipeline = Gst.parse_launch (f'rtspsrc location={uri}  name=d d. ! queue ! capsfilter caps="application/x-rtp,media=video" ! rtph264depay ! decodebin ! videoconvert ! autovideosink d. ! queue ! capsfilter caps="application/x-rtp,media=audio" ! decodebin ! audioconvert ! autoaudiosink')
         else:
-            self.pipeline = Gst.parse_launch (f'rtspsrc location={uri} ! rtph264depay ! decodebin ! autovideosink')
+            self.pipeline = Gst.parse_launch (f'rtspsrc location={uri} ! rtph264depay ! decodebin ! videoconvert ! autovideosink')
         bus = self.pipeline.get_bus()
         bus.add_signal_watch()
         bus.enable_sync_message_emission()
