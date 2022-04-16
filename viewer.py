@@ -1,6 +1,8 @@
 import config
 import pipeline
 import gi
+import cairo
+
 gi.require_version('Gdk', '3.0')
 gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
@@ -12,7 +14,7 @@ class Viewer:
 
         Gst.init(None)
         Gst.init_check(None)
-        
+
         self.config = config
         self.window = Gtk.Window()
         self.window.connect('destroy', self.stop)
@@ -32,7 +34,7 @@ class Viewer:
             print("attaching at {}, {}", count % self.config.columns, int(count / self.config.columns))
             self.grid.attach(a, count % self.config.columns, count / self.config.columns, 1, 1)
             count += 1
-            
+
         self.window.add(self.grid)
         self.window.show_all()
 
@@ -65,14 +67,16 @@ class Viewer:
         self.window.remove(area)
         self.window.add(self.grid)
         for a in self.area:
-            a.start()            
+            a.start()
 
-    
 class GstWidget(Gtk.DrawingArea):
     def __init__(self, camera):
         super().__init__()
         # Only setup the widget after the window is shown
         self.connect('realize', self._on_realize)
+        self.connect("draw", self.expose)
+        self.connected = True
+        self.queue_draw()
         self.uri = camera.preview_url
         self.proto = camera.proto
         self.full_uri = camera.url
@@ -80,6 +84,17 @@ class GstWidget(Gtk.DrawingArea):
         self.index = camera.index
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         self.connect("button-press-event", self.clicked)
+
+    def expose(area, widget, context):
+        context.scale(area.get_allocated_width(), area.get_allocated_height())
+        context.set_source_rgb(0.0, 0, 0)
+        context.paint()
+        context.set_source_rgb(0.9, 0.9, 0.9)
+        context.select_font_face("Monospace")
+        context.set_font_size(0.03)
+        (x, y, width, height, dx, dy) = context.text_extents("NO SIGNAL")
+        context.move_to(0.5 - width/2, 0.5)
+        context.show_text("NO SIGNAL")
 
     def get_index(self):
         return self.index
@@ -112,6 +127,9 @@ class GstWidget(Gtk.DrawingArea):
             self.pipeline.set_state(Gst.State.NULL)
 
     def on_sync_message(self, bus, msg):
+        if self.connected:
+            self.connected = False
+            self.disconnect_by_func(self.expose)
         if msg.get_structure().get_name() == 'prepare-window-handle':
             msg.src.set_property('force-aspect-ratio', True)
             msg.src.set_window_handle(self.xid)
