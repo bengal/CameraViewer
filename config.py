@@ -9,6 +9,7 @@ class CamConfig:
     preview_url: str
     description: str
     index: int
+    proto: str
 
 @dataclass
 class CamViewerConfig:
@@ -40,7 +41,8 @@ def read_config():
                 break
             preview_url = section.get("PreviewUrl", None)
             desc = section.get("Description", None)
-            camera = CamConfig(url=url, preview_url=preview_url, description=desc, index=i)
+            proto = section.get("Protocol", None)
+            camera = CamConfig(url=url, preview_url=preview_url, description=desc, index=i, proto=proto)
             camviewer_config.cameras.append(camera)
 
         return camviewer_config

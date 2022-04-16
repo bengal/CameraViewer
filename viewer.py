@@ -1,4 +1,5 @@
 import config
+import pipeline
 import gi
 gi.require_version('Gdk', '3.0')
 gi.require_version('Gst', '1.0')
@@ -16,6 +17,7 @@ class Viewer:
         self.window = Gtk.Window()
         self.window.connect('destroy', self.stop)
         self.window.set_default_size(640, 480)
+        self.window.set_title('Camera Viewer')
 
         self.grid = Gtk.Grid()
 
@@ -55,7 +57,7 @@ class Viewer:
         widget = GstWidget(self.config.cameras[area.get_index() - 1])
         self.window.add(widget)
         self.window.show_all()
-        widget.start(full=True, audio=True)
+        widget.start(full=True)
         widget.connect("selected", self.full_selected)
 
     def full_selected(self, area):
@@ -72,6 +74,7 @@ class GstWidget(Gtk.DrawingArea):
         # Only setup the widget after the window is shown
         self.connect('realize', self._on_realize)
         self.uri = camera.preview_url
+        self.proto = camera.proto
         self.full_uri = camera.url
         self.name = camera.description
         self.index = camera.index
@@ -81,12 +84,11 @@ class GstWidget(Gtk.DrawingArea):
     def get_index(self):
         return self.index
 
-    def init_pipeline(self, full, audio):
+    def init_pipeline(self, full):
         uri = self.full_uri if full else self.uri
-        if audio:
-            self.pipeline = Gst.parse_launch (f'rtspsrc location={uri}  name=d d. ! queue ! capsfilter caps="application/x-rtp,media=video" ! rtph264depay ! decodebin ! videoconvert ! autovideosink d. ! queue ! capsfilter caps="application/x-rtp,media=audio" ! decodebin ! audioconvert ! autoaudiosink')
-        else:
-            self.pipeline = Gst.parse_launch (f'rtspsrc location={uri} ! rtph264depay ! decodebin ! videoconvert ! autovideosink')
+
+        self.pipeline = pipeline.Pipeline(uri, not full, self.proto).get_gst_pipeline()
+
         bus = self.pipeline.get_bus()
         bus.add_signal_watch()
         bus.enable_sync_message_emission()
@@ -95,7 +97,7 @@ class GstWidget(Gtk.DrawingArea):
 
     def _on_realize(self, widget):
         Gtk.DrawingArea.__init__(self)
-          
+
         self.set_size_request(640, 480);
         self.xid = self.get_property('window').get_xid()
         self.running = False
@@ -114,10 +116,10 @@ class GstWidget(Gtk.DrawingArea):
             msg.src.set_property('force-aspect-ratio', True)
             msg.src.set_window_handle(self.xid)
 
-    def start(self, full=False, audio=False):
+    def start(self, full=False):
         if self.running:
             return
-        self.init_pipeline(full, audio)
+        self.init_pipeline(full)
         self.pipeline.set_state(Gst.State.PLAYING)
         self.running = True
 
